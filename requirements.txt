@@ -1,0 +1,8 @@
+## Data analysis
+numpy
+
+## Plotting
+matplotlib
+
+## Reading tiff file
+tifffile
