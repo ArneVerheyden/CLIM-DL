@@ -1,8 +1,10 @@
 ## Data analysis
 numpy
+scipy
 
 ## Plotting
 matplotlib
+PyQt5
 
 ## Reading tiff file
 tifffile
