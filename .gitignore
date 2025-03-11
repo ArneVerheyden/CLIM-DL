@@ -164,3 +164,7 @@ cython_debug/
 #.idea/
 
 data
+test_*
+*.gif
+*.png
+*.model

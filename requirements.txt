@@ -2,9 +2,18 @@
 numpy
 scipy
 
+torch
+torchvision
+
+opencv-python
+
 ## Plotting
 matplotlib
 PyQt5
 
-## Reading tiff file
+## Reading tiff files
 tifffile
+imagecodecs
+
+## Reading spe files
+spe2py
