@@ -2,6 +2,7 @@ import numpy as np
 from scipy.spatial import Voronoi
 from matplotlib.path import Path
 
+import lloyd
 import torch
 
 from data_utils.gif import write_gif
@@ -208,8 +209,12 @@ def generate_simulated_grains(
     grid_points = torch.vstack((X.flatten(), Y.flatten())).T
     
     points = torch.rand(n_grains, 2) * grid_size
+    
+    ## Relax the points so that we get a more even distribution of grain sizes
+    field = lloyd.Field(points.numpy())
+    field.relax()
 
-    vor = Voronoi(points)
+    vor = Voronoi(torch.from_numpy(field.get_points()))
 
     ## Get a mask of all regions of the Voronoi map so that we can set the intensity of 
     ## each grain individually

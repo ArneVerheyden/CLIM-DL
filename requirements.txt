@@ -17,3 +17,6 @@ imagecodecs
 
 ## Reading spe files
 spe2py
+
+## Lloyd relaxation
+lloyd
