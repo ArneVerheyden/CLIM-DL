@@ -14,6 +14,8 @@ class SimulationParameters:
     n_particles = ...
     n_frames: int = ...
     n_blinkers: int = ...
+    ### Constant in the PLQY function
+    quencher_strength: float = ...
     
 from scipy import signal
 
@@ -44,20 +46,15 @@ def simulate_intensity(parameters: SimulationParameters, sim_type: SimulationTyp
             transition_prob = parameters.base_prob 
             
             ## Intensity array for all frames and particles, initially filled with a random number < 1
-            intensity = (np.random.random((parameters.n_particles, parameters.n_blinkers, parameters.n_frames)) <= transition_prob) * 1 
+            blinkers = (np.random.random((parameters.n_particles, parameters.n_blinkers, parameters.n_frames)) <= transition_prob) * 1 
 
             ## Initial 50/50 chance of starting off as ON or OFF
-            intensity[:, :, 0] = np.ceil((np.random.random((parameters.n_particles, parameters.n_blinkers)) > 0.5 ) * 1).astype(dtype=np.int32)    
-            
-            
-            intensity = np.astype(intensity, np.uint32)
+            blinkers[:, :, 0] = ((np.random.random((parameters.n_particles, parameters.n_blinkers)) > 0.5 ) * 1).astype(dtype=np.uint32)    
 
             I0 = np.uint32(parameters.base_counts)
-            ## dI are the extra counts that an OFF trap generates
-            dI = np.uint32(I0 * (parameters.int_mod - 1))
 
-            intensity = np.cumsum(intensity, axis=2) 
-            intensity %= 2
+            blinkers = np.cumsum(blinkers, axis=2) 
+            blinkers %= 2
             # cumsum:
             # for i in range(1, parameters.n_frames):
             #     intensity[:, i] += intensity[:, i - 1]  
@@ -66,12 +63,9 @@ def simulate_intensity(parameters: SimulationParameters, sim_type: SimulationTyp
             ## In this representation:
             ## 0: means that the trap is ON and less PL counts will be produced
             ## 1: means thats the trap is   OFF and more PL counts will be produced
+            active_blinkers = np.sum(blinkers, axis=1)
+            intensity = I0 / (1 + parameters.quencher_strength * active_blinkers)
 
-            intensity = np.sum(intensity, axis=1)
-
-            intensity *= dI 
-            intensity += I0
-            
             return np.astype(intensity, np.float32)
 
         case _:

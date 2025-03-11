@@ -118,6 +118,8 @@ def get_training_data(length: int = 20, label_scaling: int =1):
         max_hole_chance=0.1,
         min_boundary_dimish=0,    
         max_boundary_dimish=1.0,
+        min_blinker_strength=0.005,
+        max_blinker_strength=0.08,
         psf=psf,
         label_scaling=label_scaling,
     )

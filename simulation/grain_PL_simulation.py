@@ -59,7 +59,7 @@ class TrainingDataSimulationOptions:
                  min_noise: float, max_noise: float, sample_rate: int, seconds: int, 
                  min_blinker_transition: float, max_blinker_transition: float, 
                  min_base_counts: int, max_base_counts: int, min_hole_chance: float, 
-                 max_hole_chance: float, min_boundary_dimish: float, max_boundary_dimish: float, psf: PSF, label_scaling: int=1):
+                 max_hole_chance: float, min_boundary_dimish: float, max_boundary_dimish: float, min_blinker_strength: float, max_blinker_strength: float, psf: PSF, label_scaling: int=1):
         self.grid_size = grid_size
         self.min_grains = min_grains
         self.max_grains = max_grains
@@ -78,6 +78,9 @@ class TrainingDataSimulationOptions:
         self.psf = psf
         self.label_scaling = label_scaling
 
+        self.min_blinker_strength = min_blinker_strength
+        self.max_blinker_strength = max_blinker_strength
+
     def __repr__(self):
         return (f"Options(output_dir={self.output_dir}, n_data={self.n_data}, "
                 f"grid_size={self.grid_size}, min_grains={self.min_grains}, "
@@ -88,6 +91,7 @@ class TrainingDataSimulationOptions:
                 f"min_base_counts={self.min_base_counts}, max_base_counts={self.max_base_counts}, "
                 f"min_hole_chance={self.min_hole_chance}, max_hole_chance={self.max_hole_chance}, "
                 f"min_boundary_dimish={self.min_boundary_dimish}, max_boundary_dimish={self.max_boundary_dimish}, "
+                f"min_blinker_strength={self.min_blinker_strength}, max_blinker_strength={self.max_blinker_strength}, "
                 f"psf={self.psf}, overwrite={self.overwrite})"
                 f"label_scaling={self.label_scaling}")
 
@@ -139,16 +143,20 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
     max_boundary_dimish = sim_options.max_boundary_dimish
     psf = sim_options.psf
 
+    min_blinker_strength = sim_options.min_blinker_strength
+    max_blinker_strength = sim_options.max_blinker_strength
+
     assert min_grains <= max_grains, "Minimum amount of grains should be smaller or equal than the maximum amount of grains"
     assert min_noise <= max_noise, "Minimum amount of noise should be smaller than the maximum amount of noise"
     assert min_blinker_transition <= max_blinker_transition, "Minimum of blinker transition should be smaller than the maximum"
     assert min_base_counts <= max_base_counts, "Minimum amount of base counts should be smaller than the maximum amount"
     assert min_hole_chance <= min_hole_chance, "Minimum hole chance should be smaller than the maximum "
+    assert min_blinker_strength <= max_blinker_strength, "Minimum blinker strength should be smaller than maximum blinker strength"
     assert isinstance(psf, PSF), "'psf' should be an instance of the class PSF" 
 
     n_frames = int(sample_rate * seconds)
 
-    random_nums = torch.rand(6)
+    random_nums = torch.rand(7)
     
     ## Generate all the random parameters
     n_grains = int(min_grains + random_nums[0] * (max_grains - min_grains))
@@ -157,7 +165,7 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
     base_counts = int(min_base_counts + random_nums[3] * (max_base_counts - min_base_counts))
     hole_chance = float(min_hole_chance + random_nums[4] * (max_hole_chance - min_hole_chance))
     boundary_dimish = float(min_boundary_dimish + random_nums[4] * (max_boundary_dimish - min_hole_chance))
-    
+    blinker_strength = float(min_blinker_strength + random_nums[5] * (max_blinker_strength - min_blinker_strength))
 
     sim_params = SimulationParameters()
 
@@ -166,6 +174,7 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
     sim_params.base_prob = blinker_transition
     sim_params.n_frames = n_frames
     sim_params.n_blinkers = 20
+    sim_params.quencher_strength = blinker_strength
 
     ## Generate simulation
     video, outline = generate_simulated_grains(
