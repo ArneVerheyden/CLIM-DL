@@ -14,6 +14,7 @@ class SimulationParameters:
     n_particles = ...
     n_frames: int = ...
     n_blinkers: int = ...
+    n_blinkers_av: int = None
     ### Constant in the PLQY function
     quencher_strength: float = ...
     
@@ -40,33 +41,42 @@ def bandpass(data, sample_rate, low=None, high=None):
 
 
 
-def simulate_intensity(parameters: SimulationParameters, sim_type: SimulationType):
-    match sim_type:
-        case SimulationType.BLINKING:
-            transition_prob = parameters.base_prob 
-            
-            ## Intensity array for all frames and particles, initially filled with a random number < 1
-            blinkers = (np.random.random((parameters.n_particles, parameters.n_blinkers, parameters.n_frames)) <= transition_prob) * 1 
+def simulate_intensity(parameters: SimulationParameters, blinker_counts: list[int] | None = None):
+        ## Check if the user gave a list of blinker counts
+        if not blinker_counts is None:
+            assert len(blinker_counts) == parameters.n_particles, "Length of blinker counts array must be the same as the number of particles"
+            blinker_counts = np.maximum(blinker_counts, 0)
 
-            ## Initial 50/50 chance of starting off as ON or OFF
-            blinkers[:, :, 0] = ((np.random.random((parameters.n_particles, parameters.n_blinkers)) > 0.5 ) * 1).astype(dtype=np.uint32)    
+            max_blinker_count = np.max(blinker_counts)
+        else:
+            max_blinker_count = parameters.n_blinkers
 
-            I0 = np.uint32(parameters.base_counts)
+        transition_prob = parameters.base_prob 
+        
+        ## Intensity array for all frames and particles, initially filled with a random number < 1
+        blinkers = (np.random.random((parameters.n_particles, max_blinker_count, parameters.n_frames)) <= transition_prob) * 1 
 
-            blinkers = np.cumsum(blinkers, axis=2) 
-            blinkers %= 2
-            # cumsum:
-            # for i in range(1, parameters.n_frames):
-            #     intensity[:, i] += intensity[:, i - 1]  
-            
-            ## Convert blinker ON/OFF array that contains only 0, 1 to actual counts
-            ## In this representation:
-            ## 0: means that the trap is ON and less PL counts will be produced
-            ## 1: means thats the trap is   OFF and more PL counts will be produced
-            active_blinkers = np.sum(blinkers, axis=1)
-            intensity = I0 / (1 + parameters.quencher_strength * active_blinkers)
+        ## Initial 50/50 chance of starting off as ON or OFF
+        blinkers[:, :, 0] = ((np.random.random((parameters.n_particles, max_blinker_count)) > 0.5 ) * 1).astype(dtype=np.uint32)    
 
-            return np.astype(intensity, np.float32)
+        I0 = np.uint32(parameters.base_counts)
 
-        case _:
-            raise NotImplementedError('Not implemented yet')
+        ## Discard the flips that happen for blinker_i > max_blinker_count
+        if not blinker_counts is None:
+            for i in range(parameters.n_particles):
+                blinkers[i, blinker_counts[i]:, :].fill(0)
+
+        blinkers = np.cumsum(blinkers, axis=2) 
+        blinkers %= 2
+        # cumsum:
+        # for i in range(1, parameters.n_frames):
+        #     intensity[:, i] += intensity[:, i - 1]  
+        
+        ## Convert blinker ON/OFF array that contains only 0, 1 to actual counts
+        ## In this representation:
+        ## 0: means that the trap is ON and less PL counts will be produced
+        ## 1: means thats the trap is   OFF and more PL counts will be produced
+        active_blinkers = np.sum(blinkers, axis=1)
+        intensity = I0 / (1 + parameters.quencher_strength * active_blinkers)
+
+        return np.astype(intensity, np.float32)

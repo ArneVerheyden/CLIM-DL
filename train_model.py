@@ -104,8 +104,8 @@ def get_training_data(length: int = 20, label_scaling: int =1):
     factor = 2
     options = TrainingDataSimulationOptions(
         grid_size=256 // factor,
-        min_grains=1100 // (2 * factor * factor),
-        max_grains=1550 // (2 * factor * factor),
+        min_grains=2200 // (2 * factor * factor),
+        max_grains=3200 // (2 * factor * factor),
         min_noise=0.05 ,
         max_noise=0.12,
         sample_rate=10,
@@ -120,6 +120,8 @@ def get_training_data(length: int = 20, label_scaling: int =1):
         max_boundary_dimish=1.0,
         min_blinker_strength=0.005,
         max_blinker_strength=0.08,
+        min_blinkers_average=50,
+        max_blinkers_average=90,
         psf=psf,
         label_scaling=label_scaling,
     )

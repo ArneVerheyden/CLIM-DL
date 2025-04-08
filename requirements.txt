@@ -20,3 +20,6 @@ spe2py
 
 ## Lloyd relaxation
 lloyd
+
+## Segmentation to cluster
+scikit-learn

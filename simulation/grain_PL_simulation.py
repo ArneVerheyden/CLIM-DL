@@ -22,7 +22,7 @@ def _get_grain_mask(grid_size: int,
     return mask.reshape((grid_size, grid_size))
 
 def _get_line_mask(grid_size: int, v0, v1) -> torch.Tensor:
-    num_points = int(max(abs(v1[0] - v0[0]), abs(v1[1] - v0[1])))
+    num_points = max(5 * grid_size, int(max(abs(v1[0] - v0[0]), abs(v1[1] - v0[1]))))
 
     x_values = torch.linspace(v0[0], v1[0], num_points * 2).int()
     y_values = torch.linspace(v0[1], v1[1], num_points * 2).int()
@@ -38,6 +38,7 @@ def _get_line_mask(grid_size: int, v0, v1) -> torch.Tensor:
     mask = torch.zeros((grid_size, grid_size), dtype=torch.bool)
 
     mask[x_values, y_values] = True
+
     return mask
 
 def _get_grain_outline(grid_size: int, 
@@ -60,7 +61,10 @@ class TrainingDataSimulationOptions:
                  min_noise: float, max_noise: float, sample_rate: int, seconds: int, 
                  min_blinker_transition: float, max_blinker_transition: float, 
                  min_base_counts: int, max_base_counts: int, min_hole_chance: float, 
-                 max_hole_chance: float, min_boundary_dimish: float, max_boundary_dimish: float, min_blinker_strength: float, max_blinker_strength: float, psf: PSF, label_scaling: int=1):
+                 max_hole_chance: float, min_boundary_dimish: float, max_boundary_dimish: float, 
+                 min_blinker_strength: float, max_blinker_strength: float,
+                 min_blinkers_average: int, max_blinkers_average: int,
+                 psf: PSF, label_scaling: int=1):
         self.grid_size = grid_size
         self.min_grains = min_grains
         self.max_grains = max_grains
@@ -70,12 +74,18 @@ class TrainingDataSimulationOptions:
         self.seconds = seconds
         self.min_blinker_transition = min_blinker_transition
         self.max_blinker_transition = max_blinker_transition
+
         self.min_base_counts = min_base_counts
         self.max_base_counts = max_base_counts
         self.min_hole_chance = min_hole_chance
         self.max_hole_chance = max_hole_chance
+
         self.min_boundary_dimish = min_boundary_dimish
         self.max_boundary_dimish = max_boundary_dimish
+
+        self.min_blinkers_average = min_blinkers_average
+        self.max_blinkers_average = max_blinkers_average
+
         self.psf = psf
         self.label_scaling = label_scaling
 
@@ -93,15 +103,15 @@ class TrainingDataSimulationOptions:
                 f"min_hole_chance={self.min_hole_chance}, max_hole_chance={self.max_hole_chance}, "
                 f"min_boundary_dimish={self.min_boundary_dimish}, max_boundary_dimish={self.max_boundary_dimish}, "
                 f"min_blinker_strength={self.min_blinker_strength}, max_blinker_strength={self.max_blinker_strength}, "
+                f"min_blinker_average={self.max_blinkers_average}, max_blinkers_average={self.max_blinkers_average}, "
                 f"psf={self.psf}, overwrite={self.overwrite})"
                 f"label_scaling={self.label_scaling}")
+
 
 def generate_training_data_to_file(n_data: int,
                                    output_dir: str,
                                    sim_options: TrainingDataSimulationOptions,
                                    overwrite: bool = False):
-
-
     for i in range(n_data):
         print(f'Generating data {i + 1}...')
 
@@ -147,6 +157,9 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
     min_blinker_strength = sim_options.min_blinker_strength
     max_blinker_strength = sim_options.max_blinker_strength
 
+    min_blinkers_av = sim_options.min_blinkers_average
+    max_blinkers_av = sim_options.max_blinkers_average
+
     assert min_grains <= max_grains, "Minimum amount of grains should be smaller or equal than the maximum amount of grains"
     assert min_noise <= max_noise, "Minimum amount of noise should be smaller than the maximum amount of noise"
     assert min_blinker_transition <= max_blinker_transition, "Minimum of blinker transition should be smaller than the maximum"
@@ -167,6 +180,7 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
     hole_chance = float(min_hole_chance + random_nums[4] * (max_hole_chance - min_hole_chance))
     boundary_dimish = float(min_boundary_dimish + random_nums[4] * (max_boundary_dimish - min_hole_chance))
     blinker_strength = float(min_blinker_strength + random_nums[5] * (max_blinker_strength - min_blinker_strength))
+    blinkers_average = int(min_blinkers_av + random_nums[6] * (max_blinkers_av - min_blinkers_av))
 
     sim_params = SimulationParameters()
 
@@ -185,6 +199,7 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
         noise_level=noise,
         simulation_params=sim_params,
         boundary_diminish=boundary_dimish,
+        av_blinker_count=blinkers_average,
         psf=psf,
         label_scaling=sim_options.label_scaling,
     )
@@ -199,6 +214,7 @@ def generate_simulated_grains(
         noise_level: float,
         simulation_params: SimulationParameters,
         boundary_diminish: float,
+        av_blinker_count: int,
         psf: PSF,
         label_scaling: int=1):
     
@@ -212,6 +228,7 @@ def generate_simulated_grains(
     
     ## Relax the points so that we get a more even distribution of grain sizes
     field = lloyd.Field(points.numpy())
+    field.relax()
     field.relax()
 
     vor = Voronoi(torch.from_numpy(field.get_points()))
@@ -231,6 +248,10 @@ def generate_simulated_grains(
             continue
 
         vertices = vor.vertices[region_idx]
+        ## Check for vertices that fall too for outside the grid
+        ## This is too prevent OOM error because something seems to rarely go wrong with the lloyd relaxation causing a vertex to have a value of 10**10
+        if (np.any(vertices > 11 * grid_size) or np.any(vertices < -10 * grid_size)):
+            continue
 
         grain_mask = _get_grain_mask(grid_size, vertices, grid_points)
         outline_mask = _get_grain_outline(grid_size, vertices, label_scaling)
@@ -247,9 +268,13 @@ def generate_simulated_grains(
     ## Simulate blinking of the grains
 
     simulation_params.n_particles = n_grains
+
+    ## Generate random number of blinkers according to a poisson distribution
+    blinker_counts = np.random.poisson(av_blinker_count, n_grains)
+
     simulated_intensity = torch.from_numpy(
-        simulate_intensity(simulation_params, SimulationType.BLINKING)
-        )
+        simulate_intensity(simulation_params, blinker_counts)
+    )
 
     simulated_video = torch.zeros((simulation_params.n_frames, grid_size, grid_size))
 
