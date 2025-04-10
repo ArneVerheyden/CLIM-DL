@@ -11,7 +11,7 @@ from models.segmentation_upscaling import PLSegmentationScalingModel
 from models import PLSegmentationUnetScalingModel
 from simulation.grain_PL_simulation import TrainingDataSimulationOptions
 from torch_utils.dataset import GeneratedPLOutlineDataset
-from torch_utils.transform import BackgroundRemovalNormalize, SkipFrames
+from torch_utils.transform import *
 from training import ModelTrainer
 from models.segmentation_model import PLSegmentationModel
 
@@ -115,7 +115,7 @@ def get_training_data(length: int = 20, label_scaling: int =1):
         min_noise=0.05 ,
         max_noise=0.12,
         sample_rate=10,
-        seconds=11, ## Decides how many frames each test samples has: total frames = sample_rate * seconds
+        seconds=15, ## Decides how many frames each test samples has: total frames = sample_rate * seconds
         min_blinker_transition=0.04,
         max_blinker_transition=0.1,
         min_base_counts=6000,
@@ -135,8 +135,9 @@ def get_training_data(length: int = 20, label_scaling: int =1):
     generated_dataset = GeneratedPLOutlineDataset(length=20, 
                                               sim_options=options, 
                                               transforms=transforms.Compose([
-                                                BackgroundRemovalNormalize(),
+                                                # BackgroundRemovalNormalize(),
                                                 SkipFrames(skip=3),
+                                                ZScoreNorm(),
                                               ]),
                                               empty_chance=0.05)
 

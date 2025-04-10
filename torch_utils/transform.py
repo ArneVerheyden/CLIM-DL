@@ -15,6 +15,15 @@ def gaussian(x, A, mu, sigma, b):
         return A * np.exp(-(x - mu)**2 / (2 * sigma**2)) + b
 
 
+class ZScoreNorm:
+    def __init__(self) -> None:
+        pass
+    
+    def __call__(self, data: torch.tensor) -> Any:
+        std, mean = torch.std_mean(data, keepdim=False)
+
+        return (data - mean) / std
+
 class NormalizeIntensityTrace:
     def __init__(self) -> None:
         pass

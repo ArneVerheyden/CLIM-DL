@@ -136,8 +136,10 @@ def generate_noise_data(sim_options: TrainingDataSimulationOptions):
     video_len = sim_options.seconds * sim_options.sample_rate
     grid_dim = sim_options.grid_size
 
+    label_scale = sim_options.label_scaling
+
     video = torch.rand((video_len, grid_dim, grid_dim)) * sim_options.max_noise 
-    outline = torch.zeros((grid_dim, grid_dim))
+    outline = torch.zeros((grid_dim * label_scale, grid_dim * label_scale))
 
     return video, outline
 
