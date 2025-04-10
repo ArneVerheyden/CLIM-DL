@@ -5,27 +5,37 @@ from torch.utils.data import Dataset
 
 from data_utils.tiff import tiff_page_count, tiff_to_array
 from models.psf import PSF
-from simulation.grain_PL_simulation import TrainingDataSimulationOptions, generate_training_data
+from simulation.grain_PL_simulation import TrainingDataSimulationOptions, generate_training_data, generate_noise_data
+
+import random
 
 class GeneratedPLOutlineDataset(Dataset):
     def __init__(self, 
                  length: int, 
                  sim_options: TrainingDataSimulationOptions,
-                 transforms = None,):
+                 transforms = None,
+                 empty_chance = None):
+    
         self.num_samples = length
         self.options = sim_options
         self.transforms = transforms
+        
+        self.empty_chance = empty_chance
+
 
     def __len__(self):
         return self.num_samples
     
     def __getitem__(self, index):
-        video, outline = generate_training_data(self.options)
-
+        if self.empty_chance and random.random() < self.empty_chance:
+            video, outline = generate_noise_data(self.options)
+        else:
+            video, outline = generate_training_data(self.options)
+        
         if self.transforms:
             video = self.transforms(video)
-
-        return video, outline        
+        
+        return video, outline
 
 
 

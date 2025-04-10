@@ -132,6 +132,15 @@ def generate_training_data_to_file(n_data: int,
 
         print(f'Done generating data {i + 1}\n')
 
+def generate_noise_data(sim_options: TrainingDataSimulationOptions):
+    video_len = sim_options.seconds * sim_options.sample_rate
+    grid_dim = sim_options.grid_size
+
+    video = torch.rand((video_len, grid_dim, grid_dim)) * sim_options.max_noise 
+    outline = torch.zeros((grid_dim, grid_dim))
+
+    return video, outline
+
 def generate_training_data(sim_options: TrainingDataSimulationOptions):
     grid_size = sim_options.grid_size
     min_grains = sim_options.min_grains

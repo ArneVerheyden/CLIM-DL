@@ -5,6 +5,11 @@ import torch.nn.functional as F
 import numpy as np
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
+from scipy.optimize import OptimizeWarning
+import warnings
+
+# Specifically suppress the covariance warning
+warnings.filterwarnings("ignore", category=OptimizeWarning, message="Covariance of the parameters could not be estimated")
 
 def gaussian(x, A, mu, sigma, b):
         return A * np.exp(-(x - mu)**2 / (2 * sigma**2)) + b
@@ -72,8 +77,11 @@ class BackgroundRemovalNormalize:
 
         ### Fit the guassion
         guess = (A_guess, mu_guess, 0.05, 0.1)
-        popt, _ = curve_fit(gaussian, I_vals[peak_mask].numpy(), counts[peak_mask].numpy(), p0=guess)
-
+        try:
+            popt, _, infodict, errmsg, ier = curve_fit(gaussian, I_vals[peak_mask].numpy(), counts[peak_mask].numpy(), p0=guess, full_output=True)
+        except:
+            return NormalizeIntensityTrace()(data)
+        
         mu = popt[1]
         sigma = popt[2]
 

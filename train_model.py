@@ -96,7 +96,13 @@ def get_loss_function(dataset: Dataset):
         positive += sample_pos
         negative += total - sample_pos
 
-    return torch.nn.BCEWithLogitsLoss(pos_weight=negative/positive)
+    if (positive == 0 or negative == 0):
+        positive = 1.0
+        negative = 1.0
+
+    weight = torch.Tensor([negative/positive])
+
+    return torch.nn.BCEWithLogitsLoss(pos_weight=weight)
 
 def get_training_data(length: int = 20, label_scaling: int =1):
     psf = GuassionPSF(2.5)
@@ -116,7 +122,7 @@ def get_training_data(length: int = 20, label_scaling: int =1):
         max_base_counts=12000,
         min_hole_chance=0.01,
         max_hole_chance=0.1,
-        min_boundary_dimish=0,    
+        min_boundary_dimish=0.0,    
         max_boundary_dimish=1.0,
         min_blinker_strength=0.005,
         max_blinker_strength=0.08,
@@ -131,7 +137,8 @@ def get_training_data(length: int = 20, label_scaling: int =1):
                                               transforms=transforms.Compose([
                                                 BackgroundRemovalNormalize(),
                                                 SkipFrames(skip=3),
-                                              ]))
+                                              ]),
+                                              empty_chance=0.05)
 
     return generated_dataset
 
