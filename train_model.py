@@ -42,7 +42,7 @@ def train_segmentation(args, model_class: PLSegmentationModel | PLSegmentationUn
     else:
         model = model_class(
             input_dim=1, 
-            hidden_dim=10, 
+            hidden_dim=12, 
             kernel_size=3, 
             num_layers=1,
             # n_start_unet_channels=2,
@@ -111,25 +111,25 @@ def get_training_data(length: int = 20, label_scaling: int =1):
     options = TrainingDataSimulationOptions(
         grid_size=256 // factor,
         min_grains=2200 // (2 * factor * factor),
-        max_grains=3200 // (2 * factor * factor),
+        max_grains=3000 // (2 * factor * factor),
         min_noise=0.05 ,
         max_noise=0.12,
         sample_rate=10,
         seconds=15, ## Decides how many frames each test samples has: total frames = sample_rate * seconds
         min_blinker_transition=0.04,
         max_blinker_transition=0.1,
-        min_base_counts=6000,
+        min_base_counts=9000,
         max_base_counts=12000,
         min_hole_chance=0.01,
         max_hole_chance=0.1,
-        min_boundary_dimish=0.0,    
+        static_prob=0.35,
+        min_boundary_dimish=0,    
         max_boundary_dimish=1.0,
         min_blinker_strength=0.005,
         max_blinker_strength=0.08,
         min_blinkers_average=50,
         max_blinkers_average=90,
         psf=psf,
-        label_scaling=label_scaling,
     )
 
     generated_dataset = GeneratedPLOutlineDataset(length=20, 
@@ -139,7 +139,7 @@ def get_training_data(length: int = 20, label_scaling: int =1):
                                                 SkipFrames(skip=3),
                                                 ZScoreNorm(),
                                               ]),
-                                              empty_chance=0.05)
+                                              empty_chance=0.06)
 
     return generated_dataset
 

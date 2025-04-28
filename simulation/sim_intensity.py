@@ -18,6 +18,7 @@ class SimulationParameters:
     ### Constant in the PLQY function
     quencher_strength: float = ...
     
+    
 from scipy import signal
 
 def bandpass(data, sample_rate, low=None, high=None):
@@ -41,7 +42,7 @@ def bandpass(data, sample_rate, low=None, high=None):
 
 
 
-def simulate_intensity(parameters: SimulationParameters, blinker_counts: list[int] | None = None):
+def simulate_intensity(parameters: SimulationParameters, base_intensity: np.ndarray | None = None, blinker_counts: list[int] | None = None):
         ## Check if the user gave a list of blinker counts
         if not blinker_counts is None:
             assert len(blinker_counts) == parameters.n_particles, "Length of blinker counts array must be the same as the number of particles"
@@ -49,7 +50,7 @@ def simulate_intensity(parameters: SimulationParameters, blinker_counts: list[in
 
             max_blinker_count = np.max(blinker_counts)
         else:
-            max_blinker_count = parameters.n_blinkers
+            max_blinker_count = parameters.n_blinkers    
 
         transition_prob = parameters.base_prob 
         
@@ -59,7 +60,11 @@ def simulate_intensity(parameters: SimulationParameters, blinker_counts: list[in
         ## Initial 50/50 chance of starting off as ON or OFF
         blinkers[:, :, 0] = ((np.random.random((parameters.n_particles, max_blinker_count)) > 0.5 ) * 1).astype(dtype=np.uint32)    
 
-        I0 = np.uint32(parameters.base_counts)
+        if not base_intensity is None:
+            assert len(base_intensity) == parameters.n_particles, "Length of intensity array must be the same as the number of particles"
+            I0 = base_intensity.astype(np.uint32)
+        else:
+            I0 = np.uint32(parameters.base_counts)
 
         ## Discard the flips that happen for blinker_i > max_blinker_count
         if not blinker_counts is None:
@@ -77,6 +82,6 @@ def simulate_intensity(parameters: SimulationParameters, blinker_counts: list[in
         ## 0: means that the trap is ON and less PL counts will be produced
         ## 1: means thats the trap is   OFF and more PL counts will be produced
         active_blinkers = np.sum(blinkers, axis=1)
-        intensity = I0 / (1 + parameters.quencher_strength * active_blinkers)
+        intensity = I0.repeat(parameters.n_frames).reshape((parameters.n_particles, parameters.n_frames)) / (1 + parameters.quencher_strength * active_blinkers)
 
         return np.astype(intensity, np.float32)

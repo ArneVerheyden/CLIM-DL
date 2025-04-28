@@ -2,6 +2,7 @@ import numpy as np
 from scipy.spatial import Voronoi
 from matplotlib.path import Path
 
+import random
 import lloyd
 import torch
 
@@ -64,6 +65,7 @@ class TrainingDataSimulationOptions:
                  max_hole_chance: float, min_boundary_dimish: float, max_boundary_dimish: float, 
                  min_blinker_strength: float, max_blinker_strength: float,
                  min_blinkers_average: int, max_blinkers_average: int,
+                 static_prob: float,
                  psf: PSF, label_scaling: int=1):
         self.grid_size = grid_size
         self.min_grains = min_grains
@@ -91,6 +93,8 @@ class TrainingDataSimulationOptions:
 
         self.min_blinker_strength = min_blinker_strength
         self.max_blinker_strength = max_blinker_strength
+
+        self.static_prob = static_prob
 
     def __repr__(self):
         return (f"Options(output_dir={self.output_dir}, n_data={self.n_data}, "
@@ -207,12 +211,16 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
         grid_size=grid_size,
         n_grains=n_grains,
         hole_chance=hole_chance,
+        static_chance=sim_options.static_prob,
         noise_level=noise,
         simulation_params=sim_params,
         boundary_diminish=boundary_dimish,
         av_blinker_count=blinkers_average,
         psf=psf,
         label_scaling=sim_options.label_scaling,
+
+        min_base_counts=min_base_counts,
+        max_base_counts=max_base_counts,
     )
     
     return video, outline
@@ -222,10 +230,13 @@ def generate_simulated_grains(
         grid_size: int,
         n_grains: int, 
         hole_chance: float,
+        static_chance: float,
         noise_level: float,
         simulation_params: SimulationParameters,
         boundary_diminish: float,
         av_blinker_count: int,
+        min_base_counts: int,
+        max_base_counts: int,
         psf: PSF,
         label_scaling: int=1):
     
@@ -263,12 +274,16 @@ def generate_simulated_grains(
         ## This is too prevent OOM error because something seems to rarely go wrong with the lloyd relaxation causing a vertex to have a value of 10**10
         if (np.any(vertices > 11 * grid_size) or np.any(vertices < -10 * grid_size)):
             continue
+        
+
+        is_static = np.random.random() < static_chance
 
         grain_mask = _get_grain_mask(grid_size, vertices, grid_points)
         outline_mask = _get_grain_outline(grid_size, vertices, label_scaling)
 
-        grain_masks.append(grain_mask)
-        outline_image[outline_mask] = 1
+        grain_masks.append((grain_mask, is_static))
+        if not is_static:
+            outline_image[outline_mask] = 1
 
     ## Get a 'mask' for the outline, so that we can diminish the intensity around the border according to the parameter 
     broadened_outline = torch.from_numpy(psf(outline_image))
@@ -283,15 +298,21 @@ def generate_simulated_grains(
     ## Generate random number of blinkers according to a poisson distribution
     blinker_counts = np.random.poisson(av_blinker_count, n_grains)
 
-    simulated_intensity = torch.from_numpy(
-        simulate_intensity(simulation_params, blinker_counts)
+    base_intensities =  min_base_counts + np.random.random(n_grains) * (max_base_counts - min_base_counts) 
+    simulated_intensity = torch.from_numpy( 
+        simulate_intensity(simulation_params, base_intensities, blinker_counts)
     )
 
     simulated_video = torch.zeros((simulation_params.n_frames, grid_size, grid_size))
 
     ## Fill the different grains with their simulated intensity
-    for i, mask in enumerate(grain_masks):
-        simulated_video[:, mask] = simulated_intensity[i].unsqueeze(1)
+    for i, mask_tuple in enumerate(grain_masks):
+        mask, is_static = mask_tuple
+        if not is_static:
+            simulated_video[:, mask] = simulated_intensity[i].unsqueeze(1)
+        else:
+            ## If it is static give the grain a solid appearance with a random intensity
+            simulated_video[:, mask] = base_intensities[i]
 
     ## Apply point spread function on all frames 
     for i in range(simulated_video.shape[0]):
