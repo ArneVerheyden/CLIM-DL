@@ -110,7 +110,7 @@ def get_training_data(length: int = 20, label_scaling: int =1):
     factor = 2
     options = TrainingDataSimulationOptions(
         grid_size=256 // factor,
-        min_grains=2200 // (2 * factor * factor),
+        min_grains=1800 // (2 * factor * factor),
         max_grains=3000 // (2 * factor * factor),
         min_noise=0.05 ,
         max_noise=0.12,
@@ -122,7 +122,7 @@ def get_training_data(length: int = 20, label_scaling: int =1):
         max_base_counts=12000,
         min_hole_chance=0.01,
         max_hole_chance=0.1,
-        static_prob=0.35,
+        static_prob=0.1,
         min_boundary_dimish=0,    
         max_boundary_dimish=1.0,
         min_blinker_strength=0.005,
@@ -135,9 +135,9 @@ def get_training_data(length: int = 20, label_scaling: int =1):
     generated_dataset = GeneratedPLOutlineDataset(length=20, 
                                               sim_options=options, 
                                               transforms=transforms.Compose([
-                                                # BackgroundRemovalNormalize(),
+                                                NormalizeIntensityTrace(),
                                                 SkipFrames(skip=3),
-                                                ZScoreNorm(),
+                                                # ZScoreNorm(),
                                               ]),
                                               empty_chance=0.06)
 
