@@ -53,7 +53,7 @@ def train_segmentation(args, model_class: PLSegmentationModel | PLSegmentationUn
     dataset = get_training_data(args.batches)
     loss_function = get_loss_function(dataset)
 
-    trainer = SegmentationTrainer(model, dataset, dataset, 0.005, loss_function)
+    trainer = SegmentationTrainer(model, dataset, dataset, 0.001, loss_function)
     trainer.train(args.epochs)
 
     save_path = os.path.join(args.output_dir, f'{args.name}.model')
@@ -112,15 +112,15 @@ def get_training_data(length: int = 20, label_scaling: int =1):
     factor = 2
     options = TrainingDataSimulationOptions(
         grid_size=256 // factor,
-        min_grains=1800 // (2 * factor * factor),
-        max_grains=3000 // (2 * factor * factor),
-        min_noise=0.05 ,
-        max_noise=0.12,
+        min_grains=2500 // (2 * factor * factor),
+        max_grains=3200 // (2 * factor * factor),
+        min_noise=0.08 ,
+        max_noise=0.20,
         sample_rate=10,
         seconds=15, ## Decides how many frames each test samples has: total frames = sample_rate * seconds
         min_blinker_transition=0.04,
         max_blinker_transition=0.1,
-        min_base_counts=9000,
+        min_base_counts=6000,
         max_base_counts=12000,
         min_hole_chance=0.01,
         max_hole_chance=0.1,
@@ -141,7 +141,7 @@ def get_training_data(length: int = 20, label_scaling: int =1):
                                                 SkipFrames(skip=3),
                                                 # ZScoreNorm(),
                                               ]),
-                                              empty_chance=0.1)
+                                              empty_chance=0.15)
 
     return generated_dataset
 

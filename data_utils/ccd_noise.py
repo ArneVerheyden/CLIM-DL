@@ -1,8 +1,10 @@
 import numpy as np
 import torch
+import math
 
-def simulate_ccd_noise(size, mean_dark_current=100, 
-                       read_noise_sigma=0.8, hot_pixel_prob=0.04, 
+def simulate_ccd_noise(size, 
+                       mean_dark_current=100, 
+                       hot_pixel_prob=0.04, 
                        hot_pixel_multiplier=5,
                        use_torch: bool = False):
     
@@ -10,22 +12,18 @@ def simulate_ccd_noise(size, mean_dark_current=100,
     hot_pixel_multiplier = int(hot_pixel_multiplier)
     
     # Base dark current (Poisson distributed)
-    dark_current = 2
-    dark_frame = np.random.poisson(dark_current, size)
+    dark_frame = np.random.poisson(mean_dark_current, size)
     
-    # Read noise (Gaussian)
-    read_noise = np.random.normal(0, read_noise_sigma, size)
-    
+    noise_std = int(math.sqrt(mean_dark_current))
+
     # Hot pixels (salt noise)
     hot_pixels = np.random.random(size) < hot_pixel_prob
-    hot_pixel_mean = dark_current * hot_pixel_multiplier
+    hot_pixel_mean = noise_std * hot_pixel_multiplier
     dark_frame[hot_pixels] += np.random.poisson(hot_pixel_mean, size=len(dark_frame[hot_pixels])) - hot_pixel_mean // 2
-    
-    # Combine all noise types
-    result = np.round(dark_frame + read_noise + mean_dark_current)
+
+    result = np.round(dark_frame)
     
     if use_torch:
         return torch.Tensor(result)
     else:
         return result
-    
