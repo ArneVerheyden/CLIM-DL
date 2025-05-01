@@ -76,7 +76,7 @@ def train_scaling_segmentation_model(args, model_class: PLSegmentationScalingMod
     dataset = get_training_data(args.batches, label_scaling=2)
     loss_function = get_loss_function(dataset)
 
-    trainer = SegmentationTrainer(model, dataset, dataset, 0.005, loss_function)
+    trainer = SegmentationTrainer(model, dataset, dataset, 0.001, loss_function)
     trainer.train(args.epochs)
 
     save_path = os.path.join(args.output_dir, f'{args.name}.model')
@@ -112,24 +112,24 @@ def get_training_data(length: int = 20, label_scaling: int =1):
     factor = 2
     options = TrainingDataSimulationOptions(
         grid_size=256 // factor,
-        min_grains=2500 // (2 * factor * factor),
+        min_grains=1200 // (2 * factor * factor),
         max_grains=3200 // (2 * factor * factor),
-        min_noise=0.08 ,
-        max_noise=0.20,
+        min_noise=0.05,
+        max_noise=0.12,
         sample_rate=10,
         seconds=15, ## Decides how many frames each test samples has: total frames = sample_rate * seconds
         min_blinker_transition=0.04,
         max_blinker_transition=0.1,
-        min_base_counts=6000,
-        max_base_counts=12000,
+        min_base_counts=7000,
+        max_base_counts=10000,
         min_hole_chance=0.01,
-        max_hole_chance=0.1,
-        static_prob=0.1,
+        max_hole_chance=0.15,
+        static_prob=0.12,
         min_boundary_dimish=0,    
         max_boundary_dimish=1.0,
         min_blinker_strength=0.005,
         max_blinker_strength=0.08,
-        min_blinkers_average=50,
+        min_blinkers_average=20,
         max_blinkers_average=90,
         psf=psf,
     )
