@@ -5,6 +5,7 @@ from torch.utils.data.dataset import Dataset
 
 from enum import Enum
 
+from models import PLSegmentationModelV2
 from models.psf import GuassionPSF
 from models.segmentation_unet_model import PLSegmentationUnetModel
 from models.segmentation_upscaling import PLSegmentationScalingModel
@@ -21,6 +22,7 @@ import os
 
 class Model(Enum):
     DefaultSegmentation = 'segmentation'
+    DefaultSegmentationV2 = 'segmentation_v2'
     UnetSegmentation = 'unet_segmentation'
     UpscaleSegmentation = 'upscale_segmentation'
     UnetUpscaleSegmentation = 'unetupscale_segmentation'
@@ -139,7 +141,7 @@ def get_training_data(length: int = 20, label_scaling: int =1):
                                                 SkipFrames(skip=3),
                                                 # ZScoreNorm(),
                                               ]),
-                                              empty_chance=0.06)
+                                              empty_chance=0.1)
 
     return generated_dataset
 
@@ -170,6 +172,9 @@ def main():
     if args.model == Model.DefaultSegmentation:
         print(f'Training default segmentation model.')
         train_segmentation(args, PLSegmentationModel)
+    elif args.model == Model.DefaultSegmentationV2:
+        print(f'Training segmentation v2 model.')
+        train_segmentation(args, PLSegmentationModelV2)
     elif args.model == Model.UnetSegmentation:
         print(f'Training Unet segmentation model')
         train_segmentation(args, PLSegmentationUnetModel)

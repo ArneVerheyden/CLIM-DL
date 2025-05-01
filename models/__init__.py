@@ -1,4 +1,6 @@
 from models.segmentation_model import PLSegmentationModel
+from models.segmentation_model_v2 import PLSegmentationModelV2
+
 from models.segmentation_unet_model import PLSegmentationUnetModel
 from models.segmentation_upscaling import PLSegmentationScalingModel
 from models.segmentation_upscaling_unet import PLSegmentationUnetScalingModel

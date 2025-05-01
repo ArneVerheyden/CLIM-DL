@@ -6,6 +6,7 @@ import random
 import lloyd
 import torch
 
+from data_utils.ccd_noise import simulate_ccd_noise
 from data_utils.gif import write_gif
 from data_utils.tiff import array_to_tiff
 from models.psf import PSF
@@ -142,7 +143,16 @@ def generate_noise_data(sim_options: TrainingDataSimulationOptions):
 
     label_scale = sim_options.label_scaling
 
-    video = torch.rand((video_len, grid_dim, grid_dim)) * sim_options.max_noise 
+    ## Randomize the noise values a little ibt
+    noise_sigma = 0.4 + random.random() * 0.8
+    hot_multiplier = int(1 + random.random() * 6)
+    video = simulate_ccd_noise(
+        (video_len, grid_dim, grid_dim),
+        hot_pixel_multiplier=hot_multiplier,
+        read_noise_sigma=noise_sigma,
+        use_torch=True)
+    
+
     outline = torch.zeros((grid_dim * label_scale, grid_dim * label_scale))
 
     return video, outline
@@ -320,7 +330,15 @@ def generate_simulated_grains(
         simulated_video[i, :, :] = torch.from_numpy(psf(simulated_video[i, :, :]))
 
     ## Add proportional noise to the video
-    simulated_video += torch.rand_like(simulated_video) * noise_level * torch.mean(simulated_video)
+    noise_sigma = 0.4 + np.random.random() * 0.8
+    hot_multiplier = int(1 + np.random.random() * 6)
+    noise_level = noise_level * torch.mean(simulated_video)
+    
+    simulated_video += simulate_ccd_noise(simulated_video.shape, 
+                                          mean_dark_current=noise_level,
+                                          hot_pixel_multiplier=hot_multiplier,
+                                          read_noise_sigma=noise_sigma,
+                                          use_torch=True,) 
 
     return simulated_video, outline_image
 
