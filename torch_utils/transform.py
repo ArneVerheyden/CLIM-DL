@@ -28,7 +28,7 @@ class NormalizeIntensityTrace:
     def __init__(self) -> None:
         pass
 
-    def __call__(self, data) -> Any:
+    def __call__(self, data) -> torch.Tensor:
         return normalize_data(data)
     
 class SkipFrames:

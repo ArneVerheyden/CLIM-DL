@@ -14,7 +14,8 @@ class GeneratedPLOutlineDataset(Dataset):
                  length: int, 
                  sim_options: TrainingDataSimulationOptions,
                  transforms = None,
-                 empty_chance = None):
+                 empty_chance = None,
+                 noise_data: torch.Tensor | None = None):
     
         self.num_samples = length
         self.options = sim_options
@@ -22,13 +23,48 @@ class GeneratedPLOutlineDataset(Dataset):
         
         self.empty_chance = empty_chance
 
+        self.noise_data = noise_data
+
+        if not noise_data is None:
+            noise_width = noise_data.shape[1]
+            noise_height = noise_data.shape[2]
+
+            if noise_height < sim_options.grid_size or noise_width < sim_options.grid_size:
+                raise ValueError(f"Noise data has wrong dimensions, each spation dimension should be at least: {sim_options.grid_size} pixels")
+
+
 
     def __len__(self):
         return self.num_samples
     
+    def _get_noise_data(self, frames, shape):
+        outline = torch.zeros(shape)
+
+        n_noise_frames = self.noise_data.shape[0]
+        frames = min(n_noise_frames, frames)
+
+        frames_start = int(random.random() * (n_noise_frames - frames))
+
+        # Randomize position
+        grid_width = shape[0]
+        grid_height = shape[1]
+
+        noise_width = self.noise_data.shape[1]
+        noise_height = self.noise_data.shape[2]
+
+        start_x = int(random.random() * (noise_width - grid_width))
+        start_y = int(random.random() * (noise_height - grid_height))
+
+        return self.noise_data[frames_start:frames_start + frames, start_x:start_x + grid_width, start_y:start_y + grid_height], outline
+
     def __getitem__(self, index):
         if self.empty_chance and random.random() < self.empty_chance:
-            video, outline = generate_noise_data(self.options)
+            # Have a 50% chance of using inputted noise for training
+            if not self.noise_data is None and random.random() < 0.5:
+                frames = int(self.options.min_seconds + random.random() * (self.options.max_seconds - self.options.min_seconds)) * self.options.sample_rate
+                video, outline = self._get_noise_data(frames, (self.options.grid_size, self.options.grid_size))
+            else:
+                video, outline = generate_noise_data(self.options)
         else:
             video, outline = generate_training_data(self.options)
         

@@ -9,7 +9,7 @@ import torch
 from data_utils.ccd_noise import simulate_ccd_noise
 from data_utils.gif import write_gif
 from data_utils.tiff import array_to_tiff
-from models.psf import PSF
+from models.psf import PSF, GuassionPSF
 from simulation.sim_intensity import SimulationParameters, SimulationType, simulate_intensity
 import os
 
@@ -60,7 +60,9 @@ def _get_grain_outline(grid_size: int,
 
 class TrainingDataSimulationOptions:
     def __init__(self, grid_size: int, min_grains: int, max_grains: int, 
-                 min_noise: float, max_noise: float, sample_rate: int, seconds: int, 
+                 min_noise: float, max_noise: float, sample_rate: int, 
+                 min_seconds: int,
+                 max_seconds: int,
                  min_blinker_transition: float, max_blinker_transition: float, 
                  min_base_counts: int, max_base_counts: int, min_hole_chance: float, 
                  max_hole_chance: float, min_boundary_dimish: float, max_boundary_dimish: float, 
@@ -74,7 +76,7 @@ class TrainingDataSimulationOptions:
         self.min_noise = min_noise
         self.max_noise = max_noise
         self.sample_rate = sample_rate
-        self.seconds = seconds
+
         self.min_blinker_transition = min_blinker_transition
         self.max_blinker_transition = max_blinker_transition
 
@@ -96,6 +98,9 @@ class TrainingDataSimulationOptions:
         self.max_blinker_strength = max_blinker_strength
 
         self.static_prob = static_prob
+
+        self.min_seconds = min_seconds
+        self.max_seconds = max_seconds
 
     def __repr__(self):
         return (f"Options(output_dir={self.output_dir}, n_data={self.n_data}, "
@@ -138,7 +143,8 @@ def generate_training_data_to_file(n_data: int,
         print(f'Done generating data {i + 1}\n')
 
 def generate_noise_data(sim_options: TrainingDataSimulationOptions):
-    video_len = sim_options.seconds * sim_options.sample_rate
+    seconds = int(sim_options.min_seconds + random.random() * (sim_options.max_seconds - sim_options.min_seconds))
+    video_len = seconds * sim_options.sample_rate
     grid_dim = sim_options.grid_size
 
     label_scale = sim_options.label_scaling
@@ -164,7 +170,6 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
     min_noise = sim_options.min_noise
     max_noise = sim_options.max_noise
     sample_rate = sim_options.sample_rate
-    seconds = sim_options.seconds
     
     min_blinker_transition = sim_options.min_blinker_transition
     max_blinker_transition = sim_options.max_blinker_transition
@@ -193,9 +198,7 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
     assert min_blinker_strength <= max_blinker_strength, "Minimum blinker strength should be smaller than maximum blinker strength"
     assert isinstance(psf, PSF), "'psf' should be an instance of the class PSF" 
 
-    n_frames = int(sample_rate * seconds)
-
-    random_nums = torch.rand(7)
+    random_nums = torch.rand(8)
     
     ## Generate all the random parameters
     n_grains = int(min_grains + random_nums[0] * (max_grains - min_grains))
@@ -203,10 +206,12 @@ def generate_training_data(sim_options: TrainingDataSimulationOptions):
     blinker_transition = float(min_blinker_transition + random_nums[2] * (max_blinker_transition - min_blinker_transition))
     base_counts = int(min_base_counts + random_nums[3] * (max_base_counts - min_base_counts))
     hole_chance = float(min_hole_chance + random_nums[4] * (max_hole_chance - min_hole_chance))
-    boundary_dimish = float(min_boundary_dimish + random_nums[4] * (max_boundary_dimish - min_hole_chance))
+    boundary_dimish = float(min_boundary_dimish + random_nums[4] * (max_boundary_dimish - min_boundary_dimish))
     blinker_strength = float(min_blinker_strength + random_nums[5] * (max_blinker_strength - min_blinker_strength))
     blinkers_average = int(min_blinkers_av + random_nums[6] * (max_blinkers_av - min_blinkers_av))
+    seconds = int(sim_options.min_seconds + random_nums[7] * (sim_options.max_seconds - sim_options.min_seconds))
 
+    n_frames = int(sample_rate * seconds)
     sim_params = SimulationParameters()
 
     sim_params.base_counts = base_counts
@@ -296,10 +301,10 @@ def generate_simulated_grains(
             outline_image[outline_mask] = 1
 
     ## Get a 'mask' for the outline, so that we can diminish the intensity around the border according to the parameter 
-    broadened_outline = torch.from_numpy(psf(outline_image))
-    broadened_outline[broadened_outline < 0.2 * broadened_outline.max()] = 0
-    broadened_outline = np.ceil(broadened_outline)
-
+    outline_psf = GuassionPSF(0.7)
+    broadened_outline = torch.from_numpy(outline_psf(outline_image))
+    
+    broadened_outline[broadened_outline < 0.15 * broadened_outline.max()] = 0
     broadened_outline = 1 - boundary_diminish * broadened_outline
     ## Simulate blinking of the grains
 
@@ -327,10 +332,10 @@ def generate_simulated_grains(
     ## Apply point spread function on all frames 
     for i in range(simulated_video.shape[0]):
         ## todo add broadened outline back in:  * broadened_outline
-        simulated_video[i, :, :] = torch.from_numpy(psf(simulated_video[i, :, :]))
+        simulated_video[i, :, :] = torch.from_numpy(psf(simulated_video[i, :, :] * broadened_outline))
 
     ## Add proportional noise to the video
-    hot_multiplier = int(np.random.random() * 5)
+    hot_multiplier = int(np.random.random() * 15)
     hot_pixel_occurence = np.random.random() * 0.004
     noise_level = noise_level * torch.mean(simulated_video)
     

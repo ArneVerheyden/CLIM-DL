@@ -21,6 +21,8 @@ def simulate_ccd_noise(size,
     hot_pixels = np.random.random(size) < hot_pixel_prob
     hot_pixel_mean = noise_std * hot_pixel_multiplier
     dark_frame[hot_pixels] += np.random.poisson(hot_pixel_mean, size=len(dark_frame[hot_pixels]))
+    hot_pixels = np.random.random(size) < hot_pixel_prob
+    dark_frame[hot_pixels] -= np.random.poisson(hot_pixel_mean, size=len(dark_frame[hot_pixels]))
 
     result = np.round(dark_frame - mean_dark_current)
     

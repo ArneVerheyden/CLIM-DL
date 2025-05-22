@@ -5,6 +5,7 @@ from torch.utils.data.dataset import Dataset
 
 from enum import Enum
 
+from data_utils.tiff import tiff_to_array
 from models import PLSegmentationModelV2
 from models.psf import GuassionPSF
 from models.segmentation_unet_model import PLSegmentationUnetModel
@@ -36,7 +37,12 @@ class SegmentationTrainer(ModelTrainer):
         loss = self.loss_function(predictions.squeeze(1), labels)
 
         return loss
-    
+
+def load_noise_data(path: str) -> torch.Tensor | None:
+    if path:
+        return tiff_to_array(path)
+    return None
+
 def train_segmentation(args, model_class: PLSegmentationModel | PLSegmentationUnetModel):
     model = None
     if args.existing_model:
@@ -50,7 +56,7 @@ def train_segmentation(args, model_class: PLSegmentationModel | PLSegmentationUn
             # n_start_unet_channels=2,
         )  
 
-    dataset = get_training_data(args.batches)
+    dataset = get_training_data(args)
     loss_function = get_loss_function(dataset)
 
     trainer = SegmentationTrainer(model, dataset, dataset, 0.001, loss_function)
@@ -106,27 +112,31 @@ def get_loss_function(dataset: Dataset):
 
     return torch.nn.BCEWithLogitsLoss(pos_weight=weight)
 
-def get_training_data(length: int = 20, label_scaling: int =1):
+def get_training_data(args, label_scaling: int =1):
+    length = args.batches
+    noise = load_noise_data(args.noise_data)
+
     psf = GuassionPSF(2.5)
 
     factor = 2
     options = TrainingDataSimulationOptions(
         grid_size=256 // factor,
-        min_grains=1200 // (2 * factor * factor),
-        max_grains=3200 // (2 * factor * factor),
+        min_grains=1000 // (2 * factor * factor),
+        max_grains=3500 // (2 * factor * factor),
         min_noise=0.05,
         max_noise=0.12,
         sample_rate=10,
-        seconds=15, ## Decides how many frames each test samples has: total frames = sample_rate * seconds
+        min_seconds=5,
+        max_seconds=25,
         min_blinker_transition=0.04,
         max_blinker_transition=0.1,
         min_base_counts=7000,
         max_base_counts=10000,
         min_hole_chance=0.01,
-        max_hole_chance=0.15,
-        static_prob=0.12,
-        min_boundary_dimish=0,    
-        max_boundary_dimish=1.0,
+        max_hole_chance=0.03,
+        static_prob=0.05,
+        min_boundary_dimish=0.0,    
+        max_boundary_dimish=0.80,
         min_blinker_strength=0.005,
         max_blinker_strength=0.08,
         min_blinkers_average=20,
@@ -134,14 +144,15 @@ def get_training_data(length: int = 20, label_scaling: int =1):
         psf=psf,
     )
 
-    generated_dataset = GeneratedPLOutlineDataset(length=20, 
+    generated_dataset = GeneratedPLOutlineDataset(length=length, 
                                               sim_options=options, 
                                               transforms=transforms.Compose([
                                                 NormalizeIntensityTrace(),
                                                 SkipFrames(skip=3),
                                                 # ZScoreNorm(),
                                               ]),
-                                              empty_chance=0.15)
+                                              empty_chance=0.15,
+                                              noise_data=noise)
 
     return generated_dataset
 
@@ -164,6 +175,9 @@ def main():
 
     parser.add_argument('--output-dir', '-o', type=str, default='./saved_models/', 
                         help='The path to which the model will be saved')
+    
+    parser.add_argument('--noise-data', type=str, required=False, 
+                        help='Additional noise data (in tif file format) to train the model')
     
     args = parser.parse_args()
 
