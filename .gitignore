@@ -167,7 +167,6 @@ data
 test_*
 *.gif
 *.png
-*.model
 *.zip
 .vscode
 *.npy
