@@ -2,6 +2,7 @@ import argparse
 
 import torch
 from torch.utils.data.dataset import Dataset
+import numpy as np
 
 from enum import Enum
 
@@ -59,9 +60,15 @@ def train_segmentation(args, model_class: PLSegmentationModel | PLSegmentationUn
     dataset = get_training_data(args)
     loss_function = get_loss_function(dataset)
 
-    trainer = SegmentationTrainer(model, dataset, dataset, 0.001, loss_function)
+    trainer = SegmentationTrainer(model, dataset, dataset, 0.0001, loss_function)
     trainer.train(args.epochs)
 
+    epoch_losses = np.array(trainer.epoch_losses)
+    np.savetxt(os.path.join(args.output_dir, f'{args.name}.epoch_l'), epoch_losses)
+
+    all_losses = np.array(trainer.all_losses)
+    np.savetxt(os.path.join(args.output_dir, f'{args.name}.all_l'), all_losses)
+    
     save_path = os.path.join(args.output_dir, f'{args.name}.model')
     trainer.save(save_path, overwrite=True)
 
@@ -84,6 +91,12 @@ def train_scaling_segmentation_model(args, model_class: PLSegmentationScalingMod
 
     trainer = SegmentationTrainer(model, dataset, dataset, 0.001, loss_function)
     trainer.train(args.epochs)
+    
+    epoch_losses = np.array(trainer.epoch_losses)
+    np.savetxt(os.path.join(args.output_dir, f'{args.name}.epoch_l'), epoch_losses)
+
+    all_losses = np.array(trainer.all_losses)
+    np.savetxt(os.path.join(args.output_dir, f'{args.name}.all_l'), all_losses)
 
     save_path = os.path.join(args.output_dir, f'{args.name}.model')
     trainer.save(save_path, overwrite=True)
@@ -124,7 +137,7 @@ def get_training_data(args, label_scaling: int =1):
         min_grains=1000 // (2 * factor * factor),
         max_grains=3500 // (2 * factor * factor),
         min_noise=0.05,
-        max_noise=0.12,
+        max_noise=0.2,
         sample_rate=10,
         min_seconds=5,
         max_seconds=25,

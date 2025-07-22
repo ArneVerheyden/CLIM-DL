@@ -18,7 +18,8 @@ class ModelTrainer(ABC):
         self.model = model
         self.training_data = training_data
         self.testing_data = testing_data
-        self.optimizer = torch.optim.Adam(parameters, lr=learning_rate)
+        self.optimizer = torch.optim.SGD(parameters, lr=learning_rate, momentum=0.9)
+        # self.optimizer = torch.optim.Adam(parameters, lr=learning_rate)
         self.loss_function = loss_function
         
         self.epoch_losses = []
@@ -36,10 +37,17 @@ class ModelTrainer(ABC):
         model = self.model
         model.train()
 
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.7, patience=4, verbose=True,
-            min_lr=1**-6
+
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            self.optimizer,
+            epochs=epochs,
+            steps_per_epoch=len(self.training_data),
+            max_lr=0.01
         )
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     self.optimizer, mode='min', factor=0.6, patience=4, verbose=True,
+        #     # min_lr=1**-6
+        # )
 
         training_loader = DataLoader(self.training_data, batch_size=1, shuffle=False)
 

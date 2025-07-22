@@ -170,3 +170,6 @@ test_*
 *.model
 *.zip
 .vscode
+*.npy
+*.mat
+saved_models
