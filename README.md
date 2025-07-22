@@ -51,9 +51,9 @@ python train_script.py <model_name> [options]
 The `--model` argument accepts the following values:
 
 - `segmentation` - Default segmentation model
-- `segmentation_v2` - Enhanced segmentation model (V2)
+- `segmentation_v2` - Default segmentation with extra CNN layers
 - `unet_segmentation` - UNet-based segmentation model
-- `upscale_segmentation` - Segmentation model with upscaling capabilities
+- `upscale_segmentation` - Segmentation model with upscaling
 - `unetupscale_segmentation` - Combined UNet and upscaling model
 
 ## Examples
